@@ -2905,7 +2905,7 @@ static void window_ride_construction_update_widgets(rct_window *w)
     window_ride_construction_widgets[WIDX_U_TRACK].type = WWT_EMPTY;
     window_ride_construction_widgets[WIDX_O_TRACK].type = WWT_EMPTY;
 
-    bool brakesSelected = _selectedTrackType == TRACK_ELEM_BRAKES || _currentTrackCurve == (0x100 | TRACK_ELEM_BRAKES);
+    bool brakesSelected = _selectedTrackType == TRACK_ELEM_BRAKES || _currentTrackCurve == (0x100 | TRACK_ELEM_BRAKES) || _selectedTrackType == TRACK_ELEM_BLOCK_BRAKES || _currentTrackCurve == (0x100 | TRACK_ELEM_BLOCK_BRAKES);
     _boosterTrackSelected = track_element_is_booster(ride->type, _selectedTrackType) ||
         (ride->type != RIDE_TYPE_STEEL_WILD_MOUSE && _currentTrackCurve == (0x100 | TRACK_ELEM_BOOSTER));
 

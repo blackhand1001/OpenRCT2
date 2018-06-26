@@ -6600,26 +6600,34 @@ static void vehicle_update_track_motion_up_stop_check(rct_vehicle * vehicle)
 }
 
 /**
- * Modifies the train's velocity to match the block-brake fixed velocity.
+ * Modifies the train's velocity to match the block-brakes specified velocity.
  * This function must be called when the car is running through a non-stopping
  * state block-brake (precondition), which means that the block brake is acting
  * merely as a velocity regulator, in a closed state. When the brake is open, it
- * boosts the train to the speed limit
+ * boosts the train to the fixed block release speed.
  */
-static void apply_non_stop_block_brake(rct_vehicle * vehicle, bool block_brake_closed)
+static void apply_non_stop_block_brake(rct_vehicle * vehicle, bool block_brake_closed, int speed)
 {
+    if (speed < 0x20364)
+    {
+        //Fix blocks that were saved before block section speed settings were implemented.
+        speed = 0x20364;
+    }
     if (vehicle->velocity >= 0)
     {
         // If the vehicle is below the speed limit
-        if (vehicle->velocity <= 0x20364)
+        if (vehicle->velocity <= speed)
         {
-            // Boost it to the fixed block brake speed
-            vehicle->velocity     = 0x20364;
-            vehicle->acceleration = 0;
+            if (vehicle->velocity <= 0x20364)
+            {
+                // Boost it to the fixed block brake release speed
+                vehicle->velocity = 0x20364;
+                vehicle->acceleration = 0;
+            }
         }
         else if (block_brake_closed)
         {
-            // Slow it down till the fixed block brake speed
+            // Slow it down till the specified block brake speed
             vehicle->velocity -= vehicle->velocity >> 4;
             vehicle->acceleration = 0;
         }
@@ -6630,7 +6638,7 @@ static void apply_non_stop_block_brake(rct_vehicle * vehicle, bool block_brake_c
  *
  * Modifies the train's velocity influenced by a block brake
  */
-static void apply_block_brakes(rct_vehicle * vehicle, bool is_block_brake_closed)
+static void apply_block_brakes(rct_vehicle * vehicle, bool is_block_brake_closed, int speed)
 {
     // If the site is in a "train blocking" state
     if (is_block_brake_closed)
@@ -6650,11 +6658,7 @@ static void apply_block_brakes(rct_vehicle * vehicle, bool is_block_brake_closed
     }
     else
     {
-#ifdef NEW_BLOCK_BRAKES
-        apply_non_stop_block_brake(vehicle, false);
-#else
-        apply_non_stop_block_brake(vehicle, true);
-#endif
+        apply_non_stop_block_brake(vehicle, true, speed << 16);
     }
 }
 
@@ -6698,9 +6702,9 @@ static void check_and_apply_block_section_stop_site(rct_vehicle * vehicle)
     {
     case TRACK_ELEM_BLOCK_BRAKES:
         if (ride_is_block_sectioned(ride))
-            apply_block_brakes(vehicle, trackElement->flags & TILE_ELEMENT_FLAG_BLOCK_BRAKE_CLOSED);
+            apply_block_brakes(vehicle, trackElement->flags & TILE_ELEMENT_FLAG_BLOCK_BRAKE_CLOSED, tile_element_get_brake_booster_speed(trackElement));
         else
-            apply_non_stop_block_brake(vehicle, true);
+            apply_non_stop_block_brake(vehicle, true, tile_element_get_brake_booster_speed(trackElement) << 16);
 
         break;
     case TRACK_ELEM_END_STATION:
@@ -6719,7 +6723,7 @@ static void check_and_apply_block_section_stop_site(rct_vehicle * vehicle)
             {
                 if (trackElement->flags & TILE_ELEMENT_FLAG_BLOCK_BRAKE_CLOSED)
                 {
-                    apply_block_brakes(vehicle, true);
+                    apply_block_brakes(vehicle, true, tile_element_get_brake_booster_speed(trackElement));
                 }
             }
         }

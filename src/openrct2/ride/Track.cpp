@@ -2284,7 +2284,7 @@ bool track_element_has_speed_setting(uint8_t trackType)
 {
     // This does not check if the element is really a Spinning Control track instead of a booster,
     // but this does not cause problems.
-    return trackType == TRACK_ELEM_BRAKES || trackType == TRACK_ELEM_BOOSTER;
+    return trackType == TRACK_ELEM_BRAKES || trackType == TRACK_ELEM_BOOSTER || trackType == TRACK_ELEM_BLOCK_BRAKES;
 }
 
 uint8_t track_element_get_seat_rotation(const rct_tile_element * tileElement)
