@@ -1,24 +1,17 @@
-#pragma region Copyright (c) 2014-2017 OpenRCT2 Developers
 /*****************************************************************************
- * OpenRCT2, an open source clone of Roller Coaster Tycoon 2.
+ * Copyright (c) 2014-2018 OpenRCT2 developers
  *
- * OpenRCT2 is the work of many authors, a full list can be found in contributors.md
- * For more information, visit https://github.com/OpenRCT2/OpenRCT2
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
  *
- * OpenRCT2 is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * A full copy of the GNU General Public License can be found in licence.txt
+ * OpenRCT2 is licensed under the GNU General Public License version 3.
  *****************************************************************************/
-#pragma endregion
 
 #pragma once
 
 #include <openrct2/common.h>
 
-#if OPENGL_NO_LINK
+#ifdef OPENGL_NO_LINK
 
 // BEGIN [Do not define 1.1 function signatures]
 #define glActiveTexture     __static__glActiveTexture
@@ -29,6 +22,7 @@
 #define glClearColor        __static__glClearColor
 #define glCullFace          __static__glCullFace
 #define glDeleteTextures    __static__glDeleteTextures
+#define glDepthFunc         __static__glDepthFunc
 #define glDisable           __static__glDisable
 #define glDrawArrays        __static__glDrawArrays
 #define glEnable            __static__glEnable
@@ -47,9 +41,9 @@
 
 #endif
 
-#include <SDL_opengl.h>
+#include <SDL2/SDL_opengl.h>
 
-#if OPENGL_NO_LINK
+#ifdef OPENGL_NO_LINK
 
 // END [Do not define 1.1 function signatures]
 #undef glActiveTexture
@@ -60,6 +54,7 @@
 #undef glClearColor
 #undef glCullFace
 #undef glDeleteTextures
+#undef glDepthFunc
 #undef glDisable
 #undef glDrawArrays
 #undef glEnable
@@ -84,6 +79,7 @@ typedef void   (APIENTRYP PFNGLCLEARPROC         )(GLbitfield mask);
 typedef void   (APIENTRYP PFNGLCLEARCOLORPROC    )(GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha);
 typedef void   (APIENTRYP PFNGLCULLFACEPROC      )(GLenum mode);
 typedef void   (APIENTRYP PFNGLDELETETEXTURESPROC)(GLsizei n, const GLuint *textures);
+typedef void   (APIENTRYP PFNGLDEPTHFUNCPROC     )(GLenum func);
 typedef void   (APIENTRYP PFNGLDISABLEPROC       )(GLenum cap);
 typedef void   (APIENTRYP PFNGLDRAWARRAYSPROC    )(GLenum mode, GLint first, GLsizei count);
 typedef void   (APIENTRYP PFNGLENABLEPROC        )(GLenum cap);
@@ -119,12 +115,12 @@ inline void CheckGLError()
 namespace OpenGLAPI
 {
     bool Initialise();
-    void SetTexture(uint16 index, GLenum type, GLuint texture);
+    void SetTexture(uint16_t index, GLenum type, GLuint texture);
 }
 
 namespace OpenGLState
 {
-    extern uint16 ActiveTexture;
+    extern uint16_t ActiveTexture;
     extern GLuint CurrentProgram;
 
     void Reset();

@@ -1,26 +1,18 @@
-#pragma region Copyright (c) 2014-2017 OpenRCT2 Developers
 /*****************************************************************************
- * OpenRCT2, an open source clone of Roller Coaster Tycoon 2.
+ * Copyright (c) 2014-2018 OpenRCT2 developers
  *
- * OpenRCT2 is the work of many authors, a full list can be found in contributors.md
- * For more information, visit https://github.com/OpenRCT2/OpenRCT2
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
  *
- * OpenRCT2 is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * A full copy of the GNU General Public License can be found in licence.txt
+ * OpenRCT2 is licensed under the GNU General Public License version 3.
  *****************************************************************************/
-#pragma endregion
 
 #pragma once
 
 #include <openrct2/common.h>
+#include "ApplyTransparencyShader.h"
 #include "OpenGLAPI.h"
-
-class CopyFramebufferShader;
-class OpenGLFramebuffer;
+#include "OpenGLFramebuffer.h"
 
 /**
  * Class to maintain two different framebuffers where the active framebuffer
@@ -33,38 +25,19 @@ class OpenGLFramebuffer;
 class SwapFramebuffer final
 {
 private:
-    sint32              _width                  = 0;
-    sint32              _height                 = 0;
-    uint8               _targetFramebufferIndex = 0;
-    OpenGLFramebuffer * _targetFramebuffer      = nullptr;
-    OpenGLFramebuffer * _sourceFramebuffer      = nullptr;
-    OpenGLFramebuffer * _framebuffer[2]         = { 0 };
-
-    CopyFramebufferShader * _copyFramebufferShader = nullptr;
+    OpenGLFramebuffer   _opaqueFramebuffer;
+    OpenGLFramebuffer   _transparentFramebuffer;
+    OpenGLFramebuffer   _mixFramebuffer;
+    GLuint              _backDepth;
 
 public:
-    SwapFramebuffer(sint32 width, sint32 height);
-    ~SwapFramebuffer();
+    SwapFramebuffer(int32_t width, int32_t height);
 
-    /**
-     * Gets the current target framebuffer.
-     */
-    const OpenGLFramebuffer * GetTargetFramebuffer() const { return _targetFramebuffer; }
+    const OpenGLFramebuffer &GetFinalFramebuffer() const { return _opaqueFramebuffer; }
+    GLuint GetBackDepthTexture() const { return _backDepth; }
+    void BindOpaque() { _opaqueFramebuffer.Bind(); }
+    void BindTransparent() { _transparentFramebuffer.Bind(); }
 
-    /**
-     * Gets the texture ID for the source framebuffer.
-     */
-    GLuint GetSourceTexture() const;
-
-    /**
-     * Swaps the target framebuffer, binds it and then draws the previous
-     * framebuffer resulting in the two buffers matching and ready for
-     * pre-processing.
-     */
-    void SwapCopy();
-
-    /**
-     * Binds the current target framebuffer.
-     */
-    void Bind();
+    void ApplyTransparency(ApplyTransparencyShader &shader, GLuint paletteTex);
+    void Clear();
 };

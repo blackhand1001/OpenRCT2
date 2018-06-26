@@ -1,5 +1,14 @@
+/*****************************************************************************
+ * Copyright (c) 2014-2018 OpenRCT2 developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
+ *
+ * OpenRCT2 is licensed under the GNU General Public License version 3.
+ *****************************************************************************/
+
 #include "openrct2/localisation/LanguagePack.h"
-#include "openrct2/localisation/string_ids.h"
+#include "openrct2/localisation/StringIds.h"
 #include <gtest/gtest.h>
 
 class LanguagePackTest : public testing::Test
@@ -22,7 +31,7 @@ TEST_F(LanguagePackTest, create_mutable_id_1)
     ILanguagePack * lang = LanguagePackFactory::FromText(1, "STR_0000:\n");
     ASSERT_EQ(lang->GetId(), 1);
     ASSERT_EQ(lang->GetCount(), 1);
-    ASSERT_STREQ(lang->GetString(0), "");
+    ASSERT_STREQ(lang->GetString(0), nullptr);
     lang->SetString(0, "xx");
     ASSERT_EQ(lang->GetCount(), 1);
     ASSERT_STREQ(lang->GetString(0), "xx");

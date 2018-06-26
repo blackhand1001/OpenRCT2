@@ -1,45 +1,42 @@
-#pragma region Copyright (c) 2014-2017 OpenRCT2 Developers
 /*****************************************************************************
-* OpenRCT2, an open source clone of Roller Coaster Tycoon 2.
-*
-* OpenRCT2 is the work of many authors, a full list can be found in contributors.md
-* For more information, visit https://github.com/OpenRCT2/OpenRCT2
-*
-* OpenRCT2 is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* A full copy of the GNU General Public License can be found in licence.txt
-*****************************************************************************/
-#pragma endregion
+ * Copyright (c) 2014-2018 OpenRCT2 developers
+ *
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
+ *
+ * OpenRCT2 is licensed under the GNU General Public License version 3.
+ *****************************************************************************/
 
 #pragma once
 
+#include "../Cheats.h"
+#include "../Context.h"
 #include "../core/MemoryStream.h"
-#include "../localisation/string_ids.h"
+#include "../drawing/Drawing.h"
+#include "../interface/Window.h"
+#include "../localisation/Localisation.h"
+#include "../localisation/StringIds.h"
+#include "../ride/Ride.h"
+#include "../ui/UiContext.h"
+#include "../ui/WindowManager.h"
+#include "../world/Park.h"
 #include "GameAction.h"
-
-#include "../cheats.h"
-#include "../interface/window.h"
-#include "../localisation/localisation.h"
-#include "../world/park.h"
 
 struct RideSetNameAction : public GameActionBase<GAME_COMMAND_SET_RIDE_NAME, GameActionResult>
 {
 private:
-    sint32 _rideIndex = -1;
+    int32_t _rideIndex = -1;
     std::string _name;
 
 public:
     RideSetNameAction() {}
-    RideSetNameAction(sint32 rideIndex, const std::string& name)
+    RideSetNameAction(int32_t rideIndex, const std::string& name)
         : _rideIndex(rideIndex),
         _name(name)
     {
     }
 
-    uint16 GetActionFlags() const override
+    uint16_t GetActionFlags() const override
     {
         return GameAction::GetActionFlags() | GA_FLAGS::ALLOW_WHILE_PAUSED;
     }
@@ -92,15 +89,15 @@ public:
 
         gfx_invalidate_screen();
 
-        // Force ride list window refresh
-        rct_window *w = window_find_by_class(WC_RIDE_LIST);
-        if (w != NULL)
-            w->no_list_items = 0;
+        // Refresh windows that display ride name
+        auto windowManager = OpenRCT2::GetContext()->GetUiContext()->GetWindowManager();
+        windowManager->BroadcastIntent(Intent(INTENT_ACTION_REFRESH_RIDE_LIST));
+        windowManager->BroadcastIntent(Intent(INTENT_ACTION_REFRESH_GUEST_LIST));
 
         auto res = std::make_unique<GameActionResult>();
         res->Position.x = ride->overall_view.x * 32 + 16;
         res->Position.y = ride->overall_view.y * 32 + 16;
-        res->Position.z = map_element_height(res->Position.x, res->Position.y);
+        res->Position.z = tile_element_height(res->Position.x, res->Position.y);
 
         return res;
     }

@@ -1,68 +1,59 @@
-#pragma region Copyright (c) 2014-2017 OpenRCT2 Developers
 /*****************************************************************************
- * OpenRCT2, an open source clone of Roller Coaster Tycoon 2.
+ * Copyright (c) 2014-2018 OpenRCT2 developers
  *
- * OpenRCT2 is the work of many authors, a full list can be found in contributors.md
- * For more information, visit https://github.com/OpenRCT2/OpenRCT2
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
  *
- * OpenRCT2 is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * A full copy of the GNU General Public License can be found in licence.txt
+ * OpenRCT2 is licensed under the GNU General Public License version 3.
  *****************************************************************************/
-#pragma endregion
 
 #ifndef DISABLE_OPENGL
 
-#include "CopyFramebufferShader.h"
 #include "OpenGLFramebuffer.h"
 #include "SwapFramebuffer.h"
 
-SwapFramebuffer::SwapFramebuffer(sint32 width, sint32 height)
-{
-    _width = width;
-    _height = height;
-    _targetFramebufferIndex = 0;
-    _framebuffer[0] = new OpenGLFramebuffer(width, height);
-    _framebuffer[1] = new OpenGLFramebuffer(width, height);
-    _targetFramebuffer = _framebuffer[0];
+constexpr GLfloat depthValue[1] = { 1.0f };
+constexpr GLfloat depthValueTransparent[1] = { 0.0f };
+constexpr GLuint indexValue[4] = { 0, 0, 0, 0 };
 
-    _copyFramebufferShader = new CopyFramebufferShader();
-    _copyFramebufferShader->Use();
-    _copyFramebufferShader->SetScreenSize(_width, _height);
-    _copyFramebufferShader->SetBounds(0, 0, _width, _height);
-    _copyFramebufferShader->SetTextureCoordinates(0, 1, 1, 0);
+SwapFramebuffer::SwapFramebuffer(int32_t width, int32_t height) :
+_opaqueFramebuffer(width, height), _transparentFramebuffer(width, height),
+_mixFramebuffer(width, height, false), _backDepth(OpenGLFramebuffer::CreateDepthTexture(width, height))
+{
+    _transparentFramebuffer.Bind();
+    glClearBufferfv(GL_DEPTH, 0, depthValueTransparent);
 }
 
-SwapFramebuffer::~SwapFramebuffer()
+void SwapFramebuffer::ApplyTransparency(ApplyTransparencyShader &shader, GLuint paletteTex)
 {
-    delete _framebuffer[0];
-    delete _framebuffer[1];
-    delete _copyFramebufferShader;
+    _mixFramebuffer.Bind();
+    glDisable(GL_DEPTH_TEST);
+    shader.Use();
+    shader.SetTextures(
+        _opaqueFramebuffer.GetTexture(),
+        _opaqueFramebuffer.GetDepthTexture(),
+        _transparentFramebuffer.GetTexture(),
+        _transparentFramebuffer.GetDepthTexture(),
+        paletteTex
+    );
+    shader.Draw();
+
+    _backDepth = _transparentFramebuffer.SwapDepthTexture(_backDepth);
+
+    // Clear transparency buffers
+    _transparentFramebuffer.Bind();
+    glClearBufferuiv(GL_COLOR, 0, indexValue);
+    glClearBufferfv(GL_DEPTH, 0, depthValueTransparent);
+
+    _opaqueFramebuffer.SwapColourBuffer(_mixFramebuffer);
+    //Change binding to guaruntee no undefined behavior
+    _opaqueFramebuffer.Bind();
 }
 
-GLuint SwapFramebuffer::GetSourceTexture() const
+void SwapFramebuffer::Clear()
 {
-    return _sourceFramebuffer->GetTexture();
-}
-
-void SwapFramebuffer::SwapCopy()
-{
-    _sourceFramebuffer = _targetFramebuffer;
-    _targetFramebufferIndex = (_targetFramebufferIndex + 1) & 1;
-    _targetFramebuffer = _framebuffer[_targetFramebufferIndex];
-    _targetFramebuffer->Bind();
-
-    _copyFramebufferShader->Use();
-    _copyFramebufferShader->SetTexture(GetSourceTexture());
-    _copyFramebufferShader->Draw();
-}
-
-void SwapFramebuffer::Bind()
-{
-    _targetFramebuffer->Bind();
+    _opaqueFramebuffer.Bind();
+    glClearBufferfv(GL_DEPTH, 0, depthValue);
 }
 
 #endif /* DISABLE_OPENGL */

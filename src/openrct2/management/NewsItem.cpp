@@ -1,37 +1,31 @@
-#pragma region Copyright (c) 2014-2017 OpenRCT2 Developers
 /*****************************************************************************
- * OpenRCT2, an open source clone of Roller Coaster Tycoon 2.
+ * Copyright (c) 2014-2018 OpenRCT2 developers
  *
- * OpenRCT2 is the work of many authors, a full list can be found in contributors.md
- * For more information, visit https://github.com/OpenRCT2/OpenRCT2
+ * For a complete list of all authors, please refer to contributors.md
+ * Interested in contributing? Visit https://github.com/OpenRCT2/OpenRCT2
  *
- * OpenRCT2 is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * A full copy of the GNU General Public License can be found in licence.txt
+ * OpenRCT2 is licensed under the GNU General Public License version 3.
  *****************************************************************************/
-#pragma endregion
 
 #include "../audio/audio.h"
 #include "../Context.h"
 #include "../core/Util.hpp"
-#include "../input.h"
-#include "../interface/window.h"
-#include "../localisation/date.h"
-#include "../localisation/localisation.h"
+#include "../Input.h"
+#include "../interface/Window.h"
+#include "../localisation/Date.h"
+#include "../localisation/Localisation.h"
+#include "../management/Research.h"
 #include "../OpenRCT2.h"
-#include "../ride/ride.h"
-#include "../util/util.h"
+#include "../ride/Ride.h"
+#include "../util/Util.h"
 #include "../windows/Intent.h"
-#include "../world/sprite.h"
+#include "../world/Sprite.h"
 #include "NewsItem.h"
 
 NewsItem gNewsItems[MAX_NEWS_ITEMS];
 
 /** rct2: 0x0097BE7C */
-const uint8 news_type_properties[] =
+const uint8_t news_type_properties[] =
 {
     0,                                              // NEWS_ITEM_NULL
     NEWS_TYPE_HAS_LOCATION | NEWS_TYPE_HAS_SUBJECT, // NEWS_ITEM_RIDE
@@ -45,9 +39,9 @@ const uint8 news_type_properties[] =
     NEWS_TYPE_HAS_SUBJECT,                          // NEWS_ITEM_GRAPH
 };
 
-static sint32 news_item_get_new_history_slot();
+static int32_t news_item_get_new_history_slot();
 
-bool news_item_is_valid_idx(sint32 index)
+bool news_item_is_valid_idx(int32_t index)
 {
     if (index >= MAX_NEWS_ITEMS)
     {
@@ -57,7 +51,7 @@ bool news_item_is_valid_idx(sint32 index)
     return true;
 }
 
-NewsItem * news_item_get(sint32 index)
+NewsItem * news_item_get(int32_t index)
 {
     if (news_item_is_valid_idx(index))
     {
@@ -69,7 +63,7 @@ NewsItem * news_item_get(sint32 index)
     }
 }
 
-bool news_item_is_empty(sint32 index)
+bool news_item_is_empty(int32_t index)
 {
     NewsItem * news = news_item_get(index);
     return news != nullptr && news->Type == NEWS_ITEM_NULL;
@@ -90,17 +84,18 @@ void news_item_init_queue()
     news_item_get(11)->Type = NEWS_ITEM_NULL;
 
     // Throttles for warning types (PEEP_*_WARNING)
-    for (uint32 i = 0; i < Util::CountOf(gPeepWarningThrottle); i++)
+    for (auto &warningThrottle : gPeepWarningThrottle)
     {
-        gPeepWarningThrottle[i] = 0;
+        warningThrottle = 0;
     }
 
-    window_game_bottom_toolbar_invalidate_news_item();
+    auto intent = Intent(INTENT_ACTION_INVALIDATE_TICKER_NEWS);
+    context_broadcast_intent(&intent);
 }
 
 static void news_item_tick_current()
 {
-    sint32 ticks;
+    int32_t ticks;
     ticks = ++news_item_get(0)->Ticks;
     // Only play news item sound when in normal playing mode
     if (ticks == 1 && (gScreenFlags == SCREEN_FLAGS_PLAYING))
@@ -112,7 +107,7 @@ static void news_item_tick_current()
 
 static bool news_item_is_current_old()
 {
-    sint32 remove_time = 320;
+    int32_t remove_time = 320;
     if (!news_item_is_empty(5) &&
         !news_item_is_empty(4) &&
         !news_item_is_empty(3) &&
@@ -121,12 +116,7 @@ static bool news_item_is_current_old()
         remove_time = 256;
     }
 
-    if (news_item_get(0)->Ticks >= remove_time)
-    {
-        return true;
-    }
-
-    return false;
+    return news_item_get(0)->Ticks >= remove_time;
 }
 
 /**
@@ -139,7 +129,8 @@ void news_item_update_current()
     if (news_item_is_queue_empty())
         return;
 
-    window_game_bottom_toolbar_invalidate_news_item();
+    auto intent = Intent(INTENT_ACTION_INVALIDATE_TICKER_NEWS);
+    context_broadcast_intent(&intent);
 
     // Update the current news item
     news_item_tick_current();
@@ -155,7 +146,7 @@ void news_item_update_current()
  */
 void news_item_close_current()
 {
-    sint32 i;
+    int32_t i;
     NewsItem * newsItems = gNewsItems;
 
     // Check if there is a current message
@@ -183,12 +174,13 @@ void news_item_close_current()
     newsItems[10].Type = NEWS_ITEM_NULL;
 
     // Invalidate current news item bar
-    window_game_bottom_toolbar_invalidate_news_item();
+    auto intent = Intent(INTENT_ACTION_INVALIDATE_TICKER_NEWS);
+    context_broadcast_intent(&intent);
 }
 
 static void news_item_shift_history_up()
 {
-    const sint32 history_idx = 11;
+    const int32_t history_idx = 11;
     NewsItem * history_start = news_item_get(history_idx);
     const size_t count = sizeof(NewsItem) * (MAX_NEWS_ITEMS - 1 - history_idx);
     memmove(history_start, history_start + 1, count);
@@ -199,10 +191,10 @@ static void news_item_shift_history_up()
  * Finds a spare history slot or replaces an existing one if there are no spare
  * slots available.
  */
-static sint32 news_item_get_new_history_slot()
+static int32_t news_item_get_new_history_slot()
 {
     // Find an available history news item slot
-    for (sint32 i = 11; i < MAX_NEWS_ITEMS; i++)
+    for (int32_t i = 11; i < MAX_NEWS_ITEMS; i++)
     {
         if (news_item_is_empty(i))
             return i;
@@ -219,7 +211,7 @@ static sint32 news_item_get_new_history_slot()
  *
  *  rct2: 0x0066BA74
  */
-void news_item_get_subject_location(sint32 type, sint32 subject, sint32 * x, sint32 * y, sint32 * z)
+void news_item_get_subject_location(int32_t type, int32_t subject, int32_t * x, int32_t * y, int32_t * z)
 {
     Ride        * ride;
     rct_peep    * peep;
@@ -236,7 +228,7 @@ void news_item_get_subject_location(sint32 type, sint32 subject, sint32 * x, sin
         }
         *x   = ride->overall_view.x * 32 + 16;
         *y   = ride->overall_view.y * 32 + 16;
-        *z   = map_element_height(*x, *y);
+        *z   = tile_element_height(*x, *y);
         break;
     case NEWS_ITEM_PEEP_ON_RIDE:
         peep = GET_PEEP(subject);
@@ -263,7 +255,7 @@ void news_item_get_subject_location(sint32 type, sint32 subject, sint32 * x, sin
         // Find the first car of the train peep is on
         vehicle = &(get_sprite(ride->vehicles[peep->current_train])->vehicle);
         // Find the actual car peep is on
-        for (sint32 i = 0; i < peep->current_car; i++)
+        for (int32_t i = 0; i < peep->current_car; i++)
         {
             vehicle = &(get_sprite(vehicle->next_vehicle_on_train)->vehicle);
         }
@@ -280,7 +272,7 @@ void news_item_get_subject_location(sint32 type, sint32 subject, sint32 * x, sin
     case NEWS_ITEM_BLANK:
         *x = subject;
         *y = subject >> 16;
-        *z = map_element_height(*x, *y);
+        *z = tile_element_height(*x, *y);
         break;
     default:
         *x = LOCATION_NULL;
@@ -292,12 +284,8 @@ void news_item_get_subject_location(sint32 type, sint32 subject, sint32 * x, sin
 /**
  *
  *  rct2: 0x0066DF55
- *
- * @param  a (al)
- * @param string_id (ebx)
- * @param c (ecx)
  */
-void news_item_add_to_queue(uint8 type, rct_string_id string_id, uint32 assoc)
+void news_item_add_to_queue(uint8_t type, rct_string_id string_id, uint32_t assoc)
 {
     utf8 buffer[256];
     void * args = gCommonFormatArgs;
@@ -307,7 +295,7 @@ void news_item_add_to_queue(uint8 type, rct_string_id string_id, uint32 assoc)
     news_item_add_to_queue_raw(type, buffer, assoc);
 }
 
-void news_item_add_to_queue_raw(uint8 type, const utf8 * text, uint32 assoc)
+void news_item_add_to_queue_raw(uint8_t type, const utf8 * text, uint32_t assoc)
 {
     NewsItem * newsItem = gNewsItems;
 
@@ -326,7 +314,7 @@ void news_item_add_to_queue_raw(uint8 type, const utf8 * text, uint32 assoc)
     newsItem->Assoc     = assoc;
     newsItem->Ticks     = 0;
     newsItem->MonthYear = gDateMonthsElapsed;
-    newsItem->Day       = ((days_in_month[(newsItem->MonthYear & 7)] * gDateMonthTicks) >> 16) + 1;
+    newsItem->Day       = ((days_in_month[date_get_month(newsItem->MonthYear)] * gDateMonthTicks) >> 16) + 1;
     safe_strcpy(newsItem->Text, text, sizeof(newsItem->Text));
 
     // Blatant disregard for what happens on the last element.
@@ -341,7 +329,7 @@ void news_item_add_to_queue_raw(uint8 type, const utf8 * text, uint32 assoc)
  *  rct2: 0x0066EBE6
  *
  */
-void news_item_open_subject(sint32 type, sint32 subject)
+void news_item_open_subject(int32_t type, int32_t subject)
 {
     rct_peep   * peep;
     rct_window * window;
@@ -349,17 +337,20 @@ void news_item_open_subject(sint32 type, sint32 subject)
     switch (type)
     {
     case NEWS_ITEM_RIDE:
-        window_ride_main_open(subject);
+    {
+        auto intent = Intent(WC_RIDE);
+        intent.putExtra(INTENT_EXTRA_RIDE_ID, subject);
+        context_open_intent(&intent);
         break;
+    }
     case NEWS_ITEM_PEEP_ON_RIDE:
     case NEWS_ITEM_PEEP:
     {
         peep = GET_PEEP(subject);
 
-        Intent * intent = intent_create(WC_PEEP);
-        intent_set_pointer(intent, INTENT_EXTRA_PEEP, peep);
-        context_open_intent(intent);
-        intent_release(intent);
+        auto intent = Intent(WC_PEEP);
+        intent.putExtra(INTENT_EXTRA_PEEP, peep);
+        context_open_intent(&intent);
         break;
     }
     case NEWS_ITEM_MONEY:
@@ -368,11 +359,10 @@ void news_item_open_subject(sint32 type, sint32 subject)
     case NEWS_ITEM_RESEARCH:
         if (subject >= RESEARCH_ENTRY_RIDE_MASK)
         {
-            Intent * intent = intent_create(INTENT_ACTION_NEW_RIDE_OF_TYPE);
-            intent_set_sint(intent, INTENT_EXTRA_RIDE_TYPE, subject >> 8);
-            intent_set_sint(intent, INTENT_EXTRA_RIDE_ENTRY_INDEX, subject & 0xFF);
-            context_open_intent(intent);
-            intent_release(intent);
+            auto intent = Intent(INTENT_ACTION_NEW_RIDE_OF_TYPE);
+            intent.putExtra(INTENT_EXTRA_RIDE_TYPE, subject >> 8);
+            intent.putExtra(INTENT_EXTRA_RIDE_ENTRY_INDEX, subject & 0xFF);
+            context_open_intent(&intent);
             break;
         }
 
@@ -387,7 +377,7 @@ void news_item_open_subject(sint32 type, sint32 subject)
                 if (!tool_set(window, WC_TOP_TOOLBAR__WIDX_SCENERY, TOOL_ARROW))
                 {
                     input_set_flag(INPUT_FLAG_6, true);
-                    window_scenery_open();
+                    context_open_window(WC_SCENERY);
                 }
             }
         }
@@ -399,11 +389,10 @@ void news_item_open_subject(sint32 type, sint32 subject)
         break;
     case NEWS_ITEM_PEEPS:
     {
-        Intent * intent = intent_create(WC_GUEST_LIST);
-        intent_set_sint(intent, INTENT_EXTRA_GUEST_LIST_FILTER, GLFT_GUESTS_THINKING_X);
-        intent_set_sint(intent, INTENT_EXTRA_RIDE_ID, subject);
-        context_open_intent(intent);
-        intent_release(intent);
+        auto intent = Intent(WC_GUEST_LIST);
+        intent.putExtra(INTENT_EXTRA_GUEST_LIST_FILTER, GLFT_GUESTS_THINKING_X);
+        intent.putExtra(INTENT_EXTRA_RIDE_ID, subject);
+        context_open_intent(&intent);
         break;
     }
     case NEWS_ITEM_AWARD:
@@ -419,10 +408,10 @@ void news_item_open_subject(sint32 type, sint32 subject)
  *
  *  rct2: 0x0066E407
  */
-void news_item_disable_news(uint8 type, uint32 assoc)
+void news_item_disable_news(uint8_t type, uint32_t assoc)
 {
     // TODO: write test invalidating windows
-    for (sint32 i = 0; i < 11; i++)
+    for (int32_t i = 0; i < 11; i++)
     {
         if (!news_item_is_empty(i))
         {
@@ -432,7 +421,8 @@ void news_item_disable_news(uint8 type, uint32 assoc)
                 newsItem->Flags |= NEWS_FLAG_HAS_BUTTON;
                 if (i == 0)
                 {
-                    window_game_bottom_toolbar_invalidate_news_item();
+                    auto intent = Intent(INTENT_ACTION_INVALIDATE_TICKER_NEWS);
+                    context_broadcast_intent(&intent);
                 }
             }
         }
@@ -442,7 +432,7 @@ void news_item_disable_news(uint8 type, uint32 assoc)
         }
     }
 
-    for (sint32 i = 11; i < MAX_NEWS_ITEMS; i++)
+    for (int32_t i = 11; i < MAX_NEWS_ITEMS; i++)
     {
         if (!news_item_is_empty(i))
         {
